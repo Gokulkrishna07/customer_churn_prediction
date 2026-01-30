@@ -3,9 +3,6 @@ name: Training Pipeline
 on:
   push:
     branches: [ main ]
-    paths:
-      - 'training/**'
-      - 'data/**'
   workflow_dispatch:
 
 jobs:

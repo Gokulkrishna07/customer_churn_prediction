@@ -6,8 +6,12 @@ import os
 from prometheus_client import make_asgi_app, Counter, Histogram, Gauge
 import time
 from datetime import datetime
+from notifications.telegram import TelegramNotifier
 
 app = FastAPI(title="Cloud Cost Prediction API")
+
+# Initialize Telegram notifier
+notifier = TelegramNotifier()
 
 # Prometheus Metrics
 PREDICTION_REQUESTS = Counter('prediction_requests_total', 'Total prediction requests')
@@ -123,17 +127,23 @@ async def predict(input_data: CloudUsageInput):
     # Risk Calculation
     ratio = predicted_cost / input_data.budget
     if ratio < 0.8:
-        risk = "LOW"
+        risk = "Low"
     elif ratio <= 1.0:
-        risk = "MEDIUM"
+        risk = "Medium"
     else:
-        risk = "HIGH"
-        
-    return {
+        risk = "High"
+    
+    result = {
         "predicted_cost": predicted_cost,
         "budget": input_data.budget,
         "overrun": overrun,
         "risk_level": risk,
-        "model_version": "latest", # or run_id
+        "model_version": "latest",
         "timestamp": datetime.now().isoformat()
     }
+    
+    # Send Telegram notification for high risk or overrun
+    if overrun or risk == "High":
+        notifier.send_cost_alert(result)
+        
+    return result

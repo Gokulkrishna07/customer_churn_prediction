@@ -50,6 +50,8 @@ jobs:
           
           # Start services with virtual environment
           source venv/bin/activate
+          export TELEGRAM_BOT_TOKEN="${{ secrets.TELEGRAM_BOT_TOKEN }}"
+          export TELEGRAM_CHAT_ID="${{ secrets.TELEGRAM_CHAT_ID }}"
           nohup python -m streamlit run ui/app.py --server.port 8501 --server.address 0.0.0.0 > logs/streamlit.log 2>&1 &
           nohup mlflow ui --host 0.0.0.0 --port 5000 > logs/mlflow.log 2>&1 &
           nohup python -m uvicorn api.main:app --host 0.0.0.0 --port 8000 > logs/api.log 2>&1 &

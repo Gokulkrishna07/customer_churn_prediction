@@ -110,6 +110,14 @@ elif option == "Train Model":
                     
                     st.write(f"MAE: {mae:.2f}")
                     st.write(f"RMSE: {rmse:.2f}")
+                    
+                    # Send training completion notification
+                    try:
+                        from notifications.telegram import TelegramNotifier
+                        notifier = TelegramNotifier()
+                        notifier.send_training_alert({'mae': mae, 'rmse': rmse})
+                    except Exception as e:
+                        st.write(f"Notification failed: {e}")
                 
                 st.write("Model registered to MLflow.")
                 status.update(label="Training Complete!", state="complete", expanded=False)

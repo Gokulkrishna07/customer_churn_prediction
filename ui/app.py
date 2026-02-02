@@ -29,7 +29,7 @@ def save_uploaded_file(uploaded_file):
 
 # Sidebar
 st.sidebar.header("Operations")
-option = st.sidebar.radio("Select Action", ["Upload Data", "Train Model", "Make Prediction", "View Metrics"])
+option = st.sidebar.radio("Select Action", ["Upload Data", "Train Model", "Make Prediction", "Outputs", "View Metrics"])
 
 # Upload Data Section
 if option == "Upload Data":
@@ -230,6 +230,151 @@ elif option == "Make Prediction":
                 
         except Exception as e:
             st.error(f"Error making prediction: {e}")
+
+# Outputs Section
+elif option == "Outputs":
+    st.header("📊 Cost Prediction Outputs")
+    
+    # Quick prediction form
+    with st.expander("🔮 Quick Cost Prediction", expanded=True):
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            ec2_hours = st.number_input("EC2 Hours", min_value=0.0, value=100.0, key="output_ec2")
+            storage_gb = st.number_input("Storage (GB)", min_value=0.0, value=500.0, key="output_storage")
+        
+        with col2:
+            data_transfer_gb = st.number_input("Data Transfer (GB)", min_value=0.0, value=50.0, key="output_transfer")
+            rds_usage = st.number_input("RDS Usage", min_value=0.0, value=10.0, key="output_rds")
+        
+        with col3:
+            lambda_invocations = st.number_input("Lambda Invocations", min_value=0, value=1000000, key="output_lambda")
+            budget = st.number_input("Daily Budget ($)", min_value=0.0, value=200.0, key="output_budget")
+        
+        if st.button("🎯 Get Today's Cost Prediction", type="primary"):
+            try:
+                import requests
+                from datetime import datetime
+                
+                # Make API call
+                payload = {
+                    "ec2_hours": ec2_hours,
+                    "storage_gb": storage_gb,
+                    "data_transfer_gb": data_transfer_gb,
+                    "rds_usage": rds_usage,
+                    "lambda_invocations": int(lambda_invocations),
+                    "budget": budget
+                }
+                
+                response = requests.post("http://localhost:8000/predict", json=payload)
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    predicted_cost = result['predicted_cost']
+                    
+                    # Main prediction display
+                    st.markdown("---")
+                    st.markdown("### 💰 Today's Cost Prediction")
+                    
+                    # Big cost display
+                    col1, col2, col3 = st.columns([2, 1, 2])
+                    
+                    with col1:
+                        if result['overrun']:
+                            st.error(f"🚨 **BUDGET ALERT!**")
+                            st.markdown(f"### Your predicted cost today: **${predicted_cost:.2f}**")
+                            st.markdown(f"💸 **Over budget by:** ${predicted_cost - budget:.2f}")
+                        else:
+                            st.success(f"✅ **WITHIN BUDGET**")
+                            st.markdown(f"### Your predicted cost today: **${predicted_cost:.2f}**")
+                            st.markdown(f"💚 **Remaining budget:** ${budget - predicted_cost:.2f}")
+                    
+                    with col2:
+                        # Risk indicator
+                        risk_color = "🔴" if result['risk_level'] == "High" else "🟡" if result['risk_level'] == "Medium" else "🟢"
+                        st.markdown(f"### {risk_color}")
+                        st.markdown(f"**{result['risk_level']} Risk**")
+                    
+                    with col3:
+                        # Budget progress bar
+                        progress = min(predicted_cost / budget, 1.0)
+                        st.markdown("### Budget Usage")
+                        st.progress(progress)
+                        st.markdown(f"**{progress*100:.1f}%** of budget")
+                    
+                    # Detailed breakdown
+                    st.markdown("---")
+                    st.markdown("### 📈 Cost Breakdown Analysis")
+                    
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        st.markdown("**📊 Usage Summary:**")
+                        st.write(f"• EC2 Compute: {ec2_hours} hours")
+                        st.write(f"• Storage: {storage_gb:,.0f} GB")
+                        st.write(f"• Data Transfer: {data_transfer_gb} GB")
+                        st.write(f"• RDS Usage: {rds_usage}")
+                        st.write(f"• Lambda Calls: {lambda_invocations:,}")
+                    
+                    with col2:
+                        st.markdown("**🎯 Prediction Details:**")
+                        st.write(f"• Model Version: {result['model_version']}")
+                        st.write(f"• Prediction Time: {datetime.now().strftime('%H:%M:%S')}")
+                        st.write(f"• Risk Assessment: {result['risk_level']}")
+                        if result['overrun']:
+                            st.write("• 🚨 Alert: Budget exceeded!")
+                        else:
+                            st.write("• ✅ Status: Within budget")
+                    
+                    # Recommendations
+                    st.markdown("---")
+                    st.markdown("### 💡 Recommendations")
+                    
+                    if result['overrun']:
+                        st.warning("**Cost Optimization Needed:**")
+                        st.write("• Consider reducing EC2 instance hours")
+                        st.write("• Optimize storage usage and cleanup unused data")
+                        st.write("• Review data transfer patterns")
+                        st.write("• Scale down RDS instances if possible")
+                    elif result['risk_level'] == "High":
+                        st.info("**Monitor Closely:**")
+                        st.write("• You're approaching your budget limit")
+                        st.write("• Consider setting up cost alerts")
+                        st.write("• Review usage patterns for optimization")
+                    else:
+                        st.success("**Good Cost Management:**")
+                        st.write("• Your usage is well within budget")
+                        st.write("• Continue monitoring daily costs")
+                        st.write("• Consider increasing budget for growth")
+                    
+                    # Save prediction to session state for history
+                    if 'prediction_history' not in st.session_state:
+                        st.session_state.prediction_history = []
+                    
+                    st.session_state.prediction_history.append({
+                        'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                        'predicted_cost': predicted_cost,
+                        'budget': budget,
+                        'risk_level': result['risk_level'],
+                        'overrun': result['overrun']
+                    })
+                    
+                else:
+                    st.error(f"❌ Prediction failed: {response.text}")
+                    
+            except Exception as e:
+                st.error(f"❌ Error making prediction: {e}")
+    
+    # Prediction History
+    if 'prediction_history' in st.session_state and st.session_state.prediction_history:
+        st.markdown("---")
+        with st.expander("📋 Recent Predictions History"):
+            history_df = pd.DataFrame(st.session_state.prediction_history)
+            st.dataframe(history_df, use_container_width=True)
+            
+            if st.button("🗑️ Clear History"):
+                st.session_state.prediction_history = []
+                st.rerun()
 
 # Metrics Section
 elif option == "View Metrics":

@@ -1,0 +1,22 @@
+{
+    "monthly_charges_per_service": 0.14025925702720513,
+    "charges_ratio": 0.0975223575517744,
+    "tenure": 0.08958197535408326,
+    "MonthlyCharges": 0.08067350573129926,
+    "TotalCharges": 0.07790483537018147,
+    "avg_monthly_charges": 0.07606583807113046,
+    "PaymentMethod_Electronic check": 0.04615351821951466,
+    "InternetService_Fiber optic": 0.041121091309174046,
+    "Contract_Two year": 0.03391031805427908,
+    "premium_services": 0.024871963006875265,
+    "auto_payment": 0.021180177928250398,
+    "OnlineSecurity": 0.021059169722981753,
+    "total_services": 0.01831266685913604,
+    "Dependents": 0.01827687013707011,
+    "Contract_One year": 0.016477475918901287,
+    "TechSupport": 0.01629112294355559,
+    "tenure_group_4-6years": 0.015850282696030876,
+    "gender_Male": 0.01511115868922583,
+    "PaperlessBilling": 0.012263617137154868,
+    "OnlineBackup": 0.011636146276727308
+}

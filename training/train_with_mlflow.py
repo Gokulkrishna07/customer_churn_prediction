@@ -6,7 +6,7 @@ from preprocessing import TelcoPreprocessor
 from model_trainer import ChurnModelTrainer
 
 # MLflow server configuration
-MLFLOW_TRACKING_URI = "http://103.49.125.28:8501/mlflow"
+MLFLOW_TRACKING_URI = "http://103.49.125.28:5000"
 EXPERIMENT_NAME = "churn-prediction"
 
 # Load data

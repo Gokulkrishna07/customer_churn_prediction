@@ -23,6 +23,10 @@ import logging
 import json
 from pathlib import Path
 from datetime import datetime
+import mlflow
+import mlflow.sklearn
+import mlflow.xgboost
+import mlflow.lightgbm
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -34,18 +38,26 @@ class ChurnModelTrainer:
     Supports multiple algorithms with class imbalance handling.
     """
     
-    def __init__(self, random_state: int = 42):
+    def __init__(self, random_state: int = 42, mlflow_tracking_uri: str = None, experiment_name: str = "churn-prediction"):
         """
         Initialize trainer.
         
         Args:
             random_state: Random seed for reproducibility
+            mlflow_tracking_uri: MLflow server URI (e.g., 'http://localhost:5000')
+            experiment_name: MLflow experiment name
         """
         self.random_state = random_state
         self.models = {}
         self.results = {}
         self.best_model = None
         self.best_model_name = None
+        
+        if mlflow_tracking_uri:
+            mlflow.set_tracking_uri(mlflow_tracking_uri)
+            mlflow.set_experiment(experiment_name)
+            logger.info(f"MLflow tracking URI: {mlflow_tracking_uri}")
+            logger.info(f"MLflow experiment: {experiment_name}")
         
     def get_models(self) -> dict:
         """
@@ -167,11 +179,9 @@ class ChurnModelTrainer:
         Returns:
             Dictionary of evaluation metrics
         """
-        # Predictions
         y_pred = model.predict(X_test)
         y_pred_proba = model.predict_proba(X_test)[:, 1]
         
-        # Calculate metrics
         metrics = {
             'model_name': model_name,
             'accuracy': accuracy_score(y_test, y_pred),
@@ -182,7 +192,6 @@ class ChurnModelTrainer:
             'confusion_matrix': confusion_matrix(y_test, y_pred).tolist()
         }
         
-        # Log results
         logger.info(f"\n{model_name} Results:")
         logger.info(f"  Accuracy:  {metrics['accuracy']:.4f}")
         logger.info(f"  Precision: {metrics['precision']:.4f}")
@@ -233,7 +242,8 @@ class ChurnModelTrainer:
         y_train,
         y_test,
         imbalance_method: str = 'smote',
-        cv: bool = True
+        cv: bool = True,
+        log_to_mlflow: bool = True
     ):
         """
         Train all models and compare results.
@@ -245,42 +255,78 @@ class ChurnModelTrainer:
             y_test: Test target
             imbalance_method: Method to handle imbalance
             cv: Whether to perform cross-validation
+            log_to_mlflow: Whether to log to MLflow
         """
         logger.info("=" * 80)
         logger.info("TRAINING ALL MODELS")
         logger.info("=" * 80)
         
-        # Handle class imbalance
         X_train_resampled, y_train_resampled = self.handle_imbalance(
             X_train, y_train, method=imbalance_method
         )
         
-        # Get models
         models = self.get_models()
         
-        # Train each model
         for model_name, model in models.items():
             logger.info(f"\nTraining {model_name}...")
             
-            # Train model
-            model.fit(X_train_resampled, y_train_resampled)
-            self.models[model_name] = model
-            
-            # Evaluate on test set
-            metrics = self.evaluate_model(model, X_test, y_test, model_name)
-            
-            # Cross-validation
-            if cv:
-                logger.info(f"Performing cross-validation for {model_name}...")
-                cv_results = self.cross_validate_model(model, X_train, y_train)
-                metrics['cv_results'] = cv_results
+            if log_to_mlflow:
+                with mlflow.start_run(run_name=model_name):
+                    mlflow.log_param("model_type", model_name)
+                    mlflow.log_param("imbalance_method", imbalance_method)
+                    mlflow.log_param("random_state", self.random_state)
+                    
+                    model.fit(X_train_resampled, y_train_resampled)
+                    self.models[model_name] = model
+                    
+                    metrics = self.evaluate_model(model, X_test, y_test, model_name)
+                    
+                    mlflow.log_metrics({
+                        "accuracy": metrics['accuracy'],
+                        "precision": metrics['precision'],
+                        "recall": metrics['recall'],
+                        "f1_score": metrics['f1_score'],
+                        "roc_auc": metrics['roc_auc']
+                    })
+                    
+                    if cv:
+                        logger.info(f"Performing cross-validation for {model_name}...")
+                        cv_results = self.cross_validate_model(model, X_train, y_train)
+                        metrics['cv_results'] = cv_results
+                        
+                        mlflow.log_metrics({
+                            "cv_f1_mean": cv_results['f1_mean'],
+                            "cv_roc_auc_mean": cv_results['roc_auc_mean']
+                        })
+                        
+                        logger.info(f"  CV ROC-AUC: {cv_results['roc_auc_mean']:.4f} (+/- {cv_results['roc_auc_std']:.4f})")
+                        logger.info(f"  CV F1:      {cv_results['f1_mean']:.4f} (+/- {cv_results['f1_std']:.4f})")
+                    
+                    try:
+                        if 'XGBoost' in model_name:
+                            mlflow.xgboost.log_model(model, "model", registered_model_name=None)
+                        elif 'LightGBM' in model_name:
+                            mlflow.lightgbm.log_model(model, "model", registered_model_name=None)
+                        else:
+                            mlflow.sklearn.log_model(model, "model", registered_model_name=None)
+                    except Exception as e:
+                        logger.warning(f"Could not log model artifact: {e}")
+                    
+                    self.results[model_name] = metrics
+            else:
+                model.fit(X_train_resampled, y_train_resampled)
+                self.models[model_name] = model
+                metrics = self.evaluate_model(model, X_test, y_test, model_name)
                 
-                logger.info(f"  CV ROC-AUC: {cv_results['roc_auc_mean']:.4f} (+/- {cv_results['roc_auc_std']:.4f})")
-                logger.info(f"  CV F1:      {cv_results['f1_mean']:.4f} (+/- {cv_results['f1_std']:.4f})")
-            
-            self.results[model_name] = metrics
+                if cv:
+                    logger.info(f"Performing cross-validation for {model_name}...")
+                    cv_results = self.cross_validate_model(model, X_train, y_train)
+                    metrics['cv_results'] = cv_results
+                    logger.info(f"  CV ROC-AUC: {cv_results['roc_auc_mean']:.4f} (+/- {cv_results['roc_auc_std']:.4f})")
+                    logger.info(f"  CV F1:      {cv_results['f1_mean']:.4f} (+/- {cv_results['f1_std']:.4f})")
+                
+                self.results[model_name] = metrics
         
-        # Determine best model
         self._select_best_model()
         
         logger.info("\n" + "=" * 80)

@@ -1,0 +1,27 @@
+name: CD - Deploy to VM
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Deploy to VM via SSH
+      uses: appleboy/ssh-action@v1.0.0
+      with:
+        host: ${{ secrets.VM_HOST }}
+        username: ${{ secrets.VM_USERNAME }}
+        password: ${{ secrets.VM_PASSWORD }}
+        port: ${{ secrets.VM_PORT }}
+        script: |
+          cd ${{ secrets.VM_PROJECT_PATH }}
+          git pull origin main
+          source venv/bin/activate || python3 -m venv venv && source venv/bin/activate
+          pip install -r requirements.txt
+          cd training
+          python train_with_mlflow.py

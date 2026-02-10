@@ -28,35 +28,37 @@ Add the following secrets:
 | Secret Name | Description | Example |
 |------------|-------------|---------|
 | `VM_HOST` | VM IP address | `103.49.125.28` |
-| `VM_USERNAME` | SSH username | `ubuntu` or `root` |
+| `VM_USERNAME` | SSH username | `ttpl` |
 | `VM_PASSWORD` | SSH password | `your-password` |
-| `VM_PORT` | SSH port (default: 22) | `22` |
-| `VM_PROJECT_PATH` | Project path on VM | `/home/ubuntu/customer-churn-prediction` |
+| `VM_PORT` | SSH port | `2239` |
+| `VM_PROJECT_PATH` | Project path on VM | `/opt/customer-churn-prediction` |
 
 ## Setup Steps
 
 ### 1. Add GitHub Secrets
 ```
 VM_HOST=103.49.125.28
-VM_USERNAME=your-username
-VM_PASSWORD=your-password
-VM_PORT=22
-VM_PROJECT_PATH=/path/to/project
+VM_USERNAME=ttpl
+VM_PASSWORD=your-actual-password
+VM_PORT=2239
+VM_PROJECT_PATH=/opt/customer-churn-prediction
 ```
 
 ### 2. Prepare VM
 SSH into your VM and run:
 ```bash
-# Clone repository (if not already done)
-cd ~
-git clone https://github.com/your-username/customer-churn-prediction.git
-cd customer-churn-prediction
+ssh -p 2239 ttpl@103.49.125.28
 
-# Create virtual environment
-python3 -m venv venv
-source venv/bin/activate
+# Navigate to project (already deployed at /opt/customer-churn-prediction)
+cd /opt/customer-churn-prediction
 
-# Install dependencies
+# Ensure git is initialized and connected to your repo
+git remote -v
+# If not connected, add your repo:
+# git remote add origin https://github.com/your-username/customer-churn-prediction.git
+
+# Ensure venv exists
+source venv/bin/activate || python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
 ```
 

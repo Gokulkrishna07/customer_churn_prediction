@@ -1,0 +1,23 @@
+data:
+  raw_path: "data/raw/WA_Fn-UseC_-Telco-Customer-Churn.csv"
+
+training:
+  test_size: 0.2
+  random_seed: 42
+  imbalance_method: "smote"
+  cross_validate: true
+
+model:
+  save_path: "models"
+  preprocessor_path: "models/preprocessor.pkl"
+  production_path: "models/production"
+  results_path: "results/evaluation"
+
+mlflow:
+  tracking_uri: "http://103.49.125.28:8501/mlflow"
+  experiment_name: "churn-prediction"
+
+api:
+  host: "0.0.0.0"
+  port: 8000
+  model_path: "models/production/churn_model_production.pkl"

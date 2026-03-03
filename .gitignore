@@ -12,3 +12,8 @@ mlflow.db
 mlflow-artifacts/
 data/processed/
 results/
+training/
+notebooks/
+predict.py
+data_loader.py
+preprocessing.py

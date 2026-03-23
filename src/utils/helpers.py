@@ -23,3 +23,13 @@ def format_prediction_output(customer_id, probability, threshold=0.5):
         "prediction": label,
         "risk_level": "high" if probability > 0.8 else "medium" if probability > 0.5 else "low",
     }
+
+
+def get_risk_summary(predictions: list[dict]) -> dict:
+    """Summarize risk levels from a list of prediction results."""
+    summary = {"high": 0, "medium": 0, "low": 0}
+    for pred in predictions:
+        level = pred.get("risk_level", "low")
+        if level in summary:
+            summary[level] += 1
+    return summary
